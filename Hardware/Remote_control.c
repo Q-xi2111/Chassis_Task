@@ -1,8 +1,6 @@
 #include "Remote_control.h"
 
 
-
-
 extern DMA_HandleTypeDef hdma_usart3_rx;
 
 uint8_t sbus_rx_buf[2][SBUS_RX_BUF_NUM];

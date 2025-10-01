@@ -53,7 +53,7 @@ typedef __packed struct
 
 
 /*----³õÊ¼»¯Ò£¿ØÆ÷----*/
-void RC_Init(uint8_t * rx_buf_1,uint8_t * rx_buf_2,uint16_t dam_buf_number);
+extern void RC_Init(uint8_t * rx_buf_1,uint8_t * rx_buf_2,uint16_t dam_buf_number);
 
 const RC_ctrl_t *get_remote_control_point(void);
 
