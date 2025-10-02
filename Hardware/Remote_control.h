@@ -49,8 +49,13 @@ typedef __packed struct
     key_t     key;      //键盘部分
 } RC_ctrl_t;
 
-
-
+/*----对应遥控器上遥感的值----*/
+#define RC_SW_UP                ((uint16_t)1)
+#define RC_SW_MID               ((uint16_t)3)
+#define RC_SW_DOWN              ((uint16_t)2)
+#define switch_is_down(s)       (s == RC_SW_DOWN)
+#define switch_is_mid(s)        (s == RC_SW_MID)
+#define switch_is_up(s)         (s == RC_SW_UP)
 
 /*----初始化遥控器----*/
 extern void RC_Init(uint8_t * rx_buf_1,uint8_t * rx_buf_2,uint16_t dam_buf_number);
