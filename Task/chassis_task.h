@@ -20,7 +20,7 @@
 #define CHASSIS_CONTROL_TIME_MS 2
 
 /*----------------------- 通道对应任务宏定义 -----------------------*/
-/*----通道3对应的是左摇杆的上下值，从上到下递增，用作前进----*/
+/*----通道3对应的是左摇杆的上下值，从上到下递减，用作前进----*/
 #define CHASSIS_Forward_CHANNEL 3             
 
 /*----通道0对应的是右摇杆的左右值，从左到右递增，用作平移----*/
@@ -30,16 +30,16 @@
 #define CHASSIS_Rotate_CHANNEL 1        
 
 //选择底盘状态 开关通道号
-#define CHASSIS_MODE_CHANNEL 0
+#define CHASSIS_MODE_CHANNEL 1
 
 /*----------------------- 通道值对应的速度转换，前进最快大概4m/s，平移3.3m/s -----------------------*/
 //遥控器前进摇杆（max 660）转化成车体前进速度（m/s）的比例
-#define CHASSIS_Forward_RC_SEN 0.006f
+#define CHASSIS_Forward_RC_SEN 0.0027f
 
 //遥控器左右摇杆（max 660）转化成车体左右速度（m/s）的比例
-#define CHASSIS_Move_RC_SEN 0.005f
+#define CHASSIS_Move_RC_SEN 0.0027f
 
-#define CHASSIS_Rotate_RC_SEN  0.006f
+#define CHASSIS_Rotate_RC_SEN  0.003f
 
 /*----------------------- 优化方向的宏定义，加入一阶滤波和摇杆死区 -----------------------*/
 
@@ -74,21 +74,21 @@
 
 /*----------------------- 关于底盘与电机之间的一些参数设计 -----------------------*/
 
-#define MAX_MOTOR_RPM 4200                  //  防止过载
+#define MAX_MOTOR_RPM 6000                  //  防止过载
 #define MAX_MOTOR_CURRENT 15000             //  15 A
 
-#define MAX_CHASSIS_Forward_Speed   3       //  前进最快3m/s
-#define MAX_CHASSIS_Move_Speed      2.5     //  平移最快2m/s
+#define MAX_CHASSIS_Forward_Speed   2.4       //  前进最快2.4m/s
+#define MAX_CHASSIS_Move_Speed      2.4     //  平移最快2.4m/s
 #define MAX_CHASSIS_Rotate_Speed    5       //  旋转最快5rad/s    
-#define MAX_WHEEL_SPEED 4.0f
+#define MAX_WHEEL_SPEED 3.5f
 
 /*----------------------- 关于电机pid参数的设计，用于初始化，4个电机共用一套pid -----------------------*/
-
+/* ---- 参数设计：误差值在0~2之间，最大值在15000， */
 #define M3508_MOTOR_SPEED_PID_KP 15000.0f
-#define M3508_MOTOR_SPEED_PID_KI 10.0f
+#define M3508_MOTOR_SPEED_PID_KI 100.0f
 #define M3508_MOTOR_SPEED_PID_KD 0.0f
 #define M3508_MOTOR_SPEED_PID_MAX_OUT MAX_MOTOR_CURRENT
-#define M3508_MOTOR_SPEED_PID_MAX_IOUT 2000.0f
+#define M3508_MOTOR_SPEED_PID_MAX_IOUT 3000.0f
 
 
 /*----------------------- 关于底盘控制的结构体 -----------------------*/
@@ -149,7 +149,7 @@ typedef struct
 /*----------------------- 对外结构声明 -----------------------*/
 
 /*----对外接口，控制任务的核心函数*/
-extern void chassis_task(void const *pvParameters);
+extern void chassis_task(void *pvParameters);
 
 /*---- 根据遥控器通道值，解算出运动值*/
 extern void chassis_rc_to_control_vector(fp32 *vx_set, fp32 *vy_set, fp32 *vz_set,chassis_move_t *chassis_move_rc_to_vector);

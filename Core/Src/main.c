@@ -28,6 +28,10 @@
 /* USER CODE BEGIN Includes */
 #include "Remote_control.h"
 #include "Serial_test.h"
+#include "Motor.h"
+#include "chassis_task.h"
+
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -97,19 +101,25 @@ int main(void)
   MX_CAN1_Init();
   MX_USART1_UART_Init();
   MX_USART3_UART_Init();
+  //MX_USART6_UART_Init();
   /* USER CODE BEGIN 2 */
+  /* ---- 打开遥控器 ---- */
   RC_Init(sbus_rx_buf[0],sbus_rx_buf[1],RC_FRAME_LENGTH);
+  /* ---- 打开串口收发 ---- */
   Serial_Start();
+  /* ---- 打开电机接收 ---- */
+  CAN_Receive_M3508_4Motor(&CHASSIS_CAN);
+  CANInit(&CHASSIS_CAN);
   /* USER CODE END 2 */
 
   /* Init scheduler */
-  //osKernelInitialize();
+  osKernelInitialize();
 
   /* Call init function for freertos objects (in cmsis_os2.c) */
-  //MX_FREERTOS_Init();
+  MX_FREERTOS_Init();
 
   /* Start scheduler */
- // osKernelStart();
+  osKernelStart();
 
   /* We should never get here as control is now taken by the scheduler */
 
@@ -117,9 +127,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    rc_info=get_remote_control_point();
-    print_rc_ctrl(rc_info);
-    HAL_Delay(20);
+   
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

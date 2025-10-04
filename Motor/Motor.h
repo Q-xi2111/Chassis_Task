@@ -27,6 +27,21 @@
 #define CHASSIS_CAN hcan1
 #define GIMBAL_CAN hcan2
 
+// 滤波器编号，比如CAN_FILTER(5),代表的值是5<<3
+#define CAN_FILTER(x) ((x) << 3)
+
+// 接收队列选择
+#define CAN_FIFO_0 (0 << 2)
+#define CAN_FIFO_1 (1 << 2)
+
+// 标准帧或扩展帧
+#define CAN_STDID (0 << 1)
+#define CAN_EXTID (1 << 1)
+
+// 数据帧或遥控帧
+#define CAN_DATA_TYPE (0 << 0)
+#define CAN_REMOTE_TYPE (1 << 0)
+
 typedef struct{
     int16_t angle_speed;                //记录电机的转速，rpm/min
     uint16_t angle;                     //记录电机转过的角度，注意范围为0~8191,对应360°
@@ -48,5 +63,8 @@ void CANInit(CAN_HandleTypeDef *hcan);
 
 /*----传递电机参数----*/
 const motor_measure_t *get_chassis_motor_measure_point(uint8_t i);
+
+void CAN_Receive_M3508_4Motor(CAN_HandleTypeDef *hcan);
+
 
 #endif

@@ -15,9 +15,10 @@ RC_ctrl_t rc_ctrl;
  *          本函数假定上层已做字节取反（0x00?0xFF）和字节对齐
  *          数据以小端方式拼合，11 bit/通道，共 16 通道 + 2 bit 状态标志
  */
-static void sbus_to_rc(volatile const uint8_t *sbus_buf, RC_ctrl_t *rc_ctrl)
-{
 
+
+void sbus_to_rc(volatile const uint8_t *sbus_buf, RC_ctrl_t *rc_ctrl)
+{
 /*  位表摘要（LSB 0 起步）
  *  ch0   0-10
  *  ch1  11-21
@@ -32,43 +33,43 @@ static void sbus_to_rc(volatile const uint8_t *sbus_buf, RC_ctrl_t *rc_ctrl)
  *  mouseR 104-111
  *  key    112-127
  */
-
     if (sbus_buf == NULL || rc_ctrl == NULL) return;
 
-    /* 遥控通道 11 bit × 4 */
-    uint32_t raw;
-    /* ch0  0-10 */
-    raw  = sbus_buf[0] | (sbus_buf[1] << 8);
-    rc_ctrl->rc.ch[0] = raw & 0x07FF;
+    /*----------- 128 bit 原始数据拼成 4 字 -----------*/
+    uint32_t w[4];
+    w[0] = (uint32_t)sbus_buf[0] <<  0 | (uint32_t)sbus_buf[1] <<  8 |
+           (uint32_t)sbus_buf[2] << 16 | (uint32_t)sbus_buf[3] << 24;
+    w[1] = (uint32_t)sbus_buf[4] <<  0 | (uint32_t)sbus_buf[5] <<  8 |
+           (uint32_t)sbus_buf[6] << 16 | (uint32_t)sbus_buf[7] << 24;
+    w[2] = (uint32_t)sbus_buf[8] <<  0 | (uint32_t)sbus_buf[9] <<  8 |
+           (uint32_t)sbus_buf[10]<< 16 | (uint32_t)sbus_buf[11]<< 24;
+    w[3] = (uint32_t)sbus_buf[12]<<  0 | (uint32_t)sbus_buf[13]<<  8 |
+           (uint32_t)sbus_buf[14]<< 16 | (uint32_t)sbus_buf[15]<< 24;
 
-    /* ch1 11-21 */
-    raw  = (sbus_buf[1] >> 3) | (sbus_buf[2] << 5);
-    rc_ctrl->rc.ch[1] = raw & 0x07FF;
+    /*----------- 遥控通道 11bit ×4 --------------------*/
+    rc_ctrl->rc.ch[0] = (w[0] >>  0) & 0x07FF;
+    rc_ctrl->rc.ch[1] = (w[0] >> 11) & 0x07FF;
+    rc_ctrl->rc.ch[2] = ((w[0] >> 22) | (w[1] << 10)) & 0x07FF;
+    rc_ctrl->rc.ch[3] = (w[1] >>  1) & 0x07FF;
 
-    /* ch2 22-32 */
-    raw  = (sbus_buf[2] >> 6) | (sbus_buf[3] << 2) | (sbus_buf[4] << 10);
-    rc_ctrl->rc.ch[2] = raw & 0x07FF;
+    /*----------- 开关 2bit ×2 -------------------------*/
+    uint32_t sw = (w[1] >> 12) & 0x0F;
+    rc_ctrl->rc.s[0] =  sw       & 0x03;   // S1
+    rc_ctrl->rc.s[1] = (sw >> 2) & 0x03;   // S2
 
-    /* ch3 33-43 */
-    raw  = (sbus_buf[4] >> 1) | (sbus_buf[5] << 7);
-    rc_ctrl->rc.ch[3] = raw & 0x07FF;
+    /*----------- 鼠标轴 16bit 有符号 ------------------*/
+    rc_ctrl->mouse.x = (int16_t)(w[1] >> 16);                 // 48-63
+    rc_ctrl->mouse.y = (int16_t)((w[2] <<  0) >> 16);         // 64-79
+    rc_ctrl->mouse.z = (int16_t)((w[2] >> 16) | (w[3] << 16));// 80-95
 
-    /* 开关 2 bit × 2  → 位 44-47 */
-    raw = (sbus_buf[5] >> 5) | (sbus_buf[6] << 3);   
-    rc_ctrl->rc.s[0] = (raw >> 0) & 0x03;   // S1
-    rc_ctrl->rc.s[1] = (raw >> 2) & 0x03;   // S2
+    /*----------- 鼠标按键 ----------------------------*/
+    rc_ctrl->mouse.press_l = (sbus_buf[12] & 0x01);   // bit96
+    rc_ctrl->mouse.press_r = (sbus_buf[13] & 0x01);   // bit104
 
-    /* 鼠标 16/16/16/8/8 bit */
-    rc_ctrl->mouse.x      = (int16_t)(sbus_buf[6] >> 2 | (sbus_buf[7]  << 6) | (sbus_buf[8]  << 14));
-    rc_ctrl->mouse.y      = (int16_t)((sbus_buf[8] >> 2) | (sbus_buf[9]  << 6) | (sbus_buf[10] << 14));
-    rc_ctrl->mouse.z      = (int16_t)((sbus_buf[10]>> 2) | (sbus_buf[11] << 6) | (sbus_buf[12] << 14));
-    rc_ctrl->mouse.press_l= (sbus_buf[12] >> 2) & 0x01;
-    rc_ctrl->mouse.press_r= (sbus_buf[13] >> 2) & 0x01;
+    /*----------- 键盘 16bit --------------------------*/
+    rc_ctrl->key.v = (uint16_t)sbus_buf[14] | ((uint16_t)sbus_buf[15] << 8);
 
-    /* 键盘 16 bit */
-    rc_ctrl->key.v        = (sbus_buf[14] >> 2) | (sbus_buf[15] << 6) | (sbus_buf[16] << 14);
-
-    /* 零点偏移，量程范围-660~660 */
+    /*----------- 零点偏移 ----------------------------*/
     for (int i = 0; i < 4; ++i) rc_ctrl->rc.ch[i] -= RC_CH_VALUE_OFFSET;
 }
 

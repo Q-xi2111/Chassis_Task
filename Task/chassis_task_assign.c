@@ -106,11 +106,28 @@ void chassis_set_contorl(chassis_move_t *chassis_move_control)
     chassis_behaviour_control_set(&v_Forward_set, &v_Move_set, &w_Rotate_set, chassis_move_control);
 
     /* ---- 后续根据这些具体的模式来分配，本质就是多进行了一层封装 ----*/
+
     if (chassis_move_control->chassis_mode == CHASSIS_VECTOR_NO_FOLLOW_YAW){
         //“w_Rotate_set” 是旋转速度控制
-        chassis_move_control->w_Rotate = fp32_constrain(w_Rotate_set,-chassis_move_control->w_Rotate_max_speed,chassis_move_control->w_Rotate_max_speed);
-        chassis_move_control->v_Forward_set = fp32_constrain(v_Forward_set, -chassis_move_control->v_Forward_max_speed, chassis_move_control->v_Forward_max_speed);
-        chassis_move_control->v_Move_set = fp32_constrain(v_Move_set, -chassis_move_control->v_Move_max_speed, chassis_move_control->v_Move_max_speed);
+            /* 1. 限幅 */
+        v_Forward_set = fp32_constrain(v_Forward_set,
+                                    -chassis_move_control->v_Forward_max_speed,
+                                    chassis_move_control->v_Forward_max_speed);
+        v_Move_set    = fp32_constrain(v_Move_set,
+                                    -chassis_move_control->v_Move_max_speed,
+                                    chassis_move_control->v_Move_max_speed);
+        w_Rotate_set  = fp32_constrain(w_Rotate_set,
+                                    -chassis_move_control->w_Rotate_max_speed,
+                                    chassis_move_control->w_Rotate_max_speed);
+
+        first_order_filter_cali(&chassis_move_control->chassis_cmd_slow_set_Forward, v_Forward_set);
+        first_order_filter_cali(&chassis_move_control->chassis_cmd_slow_set_Move,    v_Move_set);
+        first_order_filter_cali(&chassis_move_control->chassis_cmd_slow_set_Rotate, w_Rotate_set);
+
+        /* 3. 把滤波结果写回结构体，闭环才能拿到非零值 */
+        chassis_move_control->v_Forward_set = chassis_move_control->chassis_cmd_slow_set_Forward.out;
+        chassis_move_control->v_Move_set    = chassis_move_control->chassis_cmd_slow_set_Move.out;
+        chassis_move_control->w_Rotate_set  = chassis_move_control->chassis_cmd_slow_set_Rotate.out;
     }else if (chassis_move_control->chassis_mode == CHASSIS_VECTOR_RAW){
         //在原始模式，设置值是发送到CAN总线
         chassis_move_control->v_Forward_set = v_Forward_set;
@@ -131,14 +148,13 @@ void chassis_set_contorl(chassis_move_t *chassis_move_control)
 */
 /* ---- 运动学逆解算得到各个电机的目标速度 ---- */
 static void chassis_vector_to_mecanum_wheel_speed(const fp32 vx_set, const fp32 vy_set, const fp32 wz_set, fp32 wheel_speed[4])
-{
-    const fp32 s = 0.70710678f;                        
+{                   
     const fp32 r = MOTOR_DISTANCE_TO_CENTER;            
 
-    wheel_speed[0] = (-vx_set + vy_set + wz_set * r) / s;   // FL
-    wheel_speed[1] = ( vx_set + vy_set + wz_set * r) / s;   // FR
-    wheel_speed[2] = ( vx_set - vy_set + wz_set * r) / s;   // BL
-    wheel_speed[3] = (-vx_set - vy_set + wz_set * r) / s;   // BR
+    wheel_speed[0] = (-vx_set + vy_set + wz_set * r) ;   // FL
+    wheel_speed[1] = ( vx_set + vy_set + wz_set * r) ;   // FR
+    wheel_speed[2] = ( vx_set - vy_set + wz_set * r) ;   // BL
+    wheel_speed[3] = (-vx_set - vy_set + wz_set * r) ;   // BR
 }
 
 
@@ -153,7 +169,7 @@ void chassis_control_loop(chassis_move_t *chassis_move_control_loop){
     /* ---- 运动学逆解算得到各电机目标速度 ---- */
     chassis_vector_to_mecanum_wheel_speed(chassis_move_control_loop->v_Forward_set,
                                           chassis_move_control_loop->v_Move_set,
-                                          chassis_move_control_loop->w_Rotate,
+                                          chassis_move_control_loop->w_Rotate_set,
                                           wheel_speed);
 
     /* ---- 调式模式 ---- */
@@ -166,6 +182,21 @@ void chassis_control_loop(chassis_move_t *chassis_move_control_loop){
             raw = fp32_constrain(raw, -MAX_MOTOR_CURRENT, MAX_MOTOR_CURRENT);
             chassis_move_control_loop->motor_chassis[i].give_current = (int16_t)(wheel_speed[i]);
         }
+        int16_t rpm = chassis_move_control_loop->motor_chassis[0]
+                  .chassis_motor_measure->angle_speed;
+        fp32    ms  = chassis_move_control_loop->motor_chassis[0].speed;
+
+            usart_printf("RPM:%d  m/s:%.3f  vx:%.2f  vy:%.2f  wz:%.2f\r\n",
+             rpm, ms,
+             chassis_move_control_loop->v_Forward_set,
+             chassis_move_control_loop->v_Move_set,
+             chassis_move_control_loop->w_Rotate_set);
+        // usart_printf("%f %f %f %f %f\r\n",chassis_move_control_loop->v_Forward_set,
+        //                         chassis_move_control_loop->v_Move_set,
+        //                         chassis_move_control_loop->w_Rotate,
+        //                         chassis_move_control_loop->motor_chassis[0].speed,
+        //                         chassis_move_control_loop->motor_chassis[0].speed_set
+        //                     );
         return;                      
     }
 
@@ -187,11 +218,28 @@ void chassis_control_loop(chassis_move_t *chassis_move_control_loop){
     /* ---- pid控制得到输出值 ---- */
     for (i = 0; i < 4; i++)
     {
-        //motor_speed_pid[i]为pid指针
+        //传入的参数是m/s，数量级是个位数，输出值对应速度4.2*10（**-4）,
         PID_calc(&chassis_move_control_loop->motor_speed_pid[i],
                  chassis_move_control_loop->motor_chassis[i].speed,      // 反馈（m/s）
                  chassis_move_control_loop->motor_chassis[i].speed_set); // 目标（m/s）
     }
+    //这里进行打印，5个参数，从左到右依次是 vx_set,vy_set,vw_set,轮子1的实际速度，轮子1的目标速度
+    int16_t rpm = chassis_move_control_loop->motor_chassis[0]
+                  .chassis_motor_measure->angle_speed;
+    fp32    ms  = chassis_move_control_loop->motor_chassis[0].speed;
+
+    
+    usart_printf("RPM:%d  m/s:%.3f  vx:%.2f  vy:%.2f  wz:%.2f\r\n",
+             rpm, ms,
+             chassis_move_control_loop->v_Forward_set,
+             chassis_move_control_loop->v_Move_set,
+             chassis_move_control_loop->w_Rotate_set);
+    //  usart_printf("%f %f %f %f %f\r\n",chassis_move_control_loop->v_Forward_set,
+    //                                chassis_move_control_loop->v_Move_set,
+    //                                chassis_move_control_loop->w_Rotate,
+    //                                chassis_move_control_loop->motor_chassis[0].speed,
+    //                                chassis_move_control_loop->motor_chassis[0].speed_set
+    //                              );
     /* ---- 发出数据---- */
     for (i = 0; i < 4; i++)
     {

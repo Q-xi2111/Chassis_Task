@@ -4,6 +4,16 @@ uint32_t used_mailbox;      //接收那个邮箱传递数据
 /*----定义电机数据数组*/
 motor_measure_t motor_data[4];            //存储4个电机的数据
 
+/**
+ * @brief  一次配置收 0x201~0x204 四个电机反馈帧
+ * @param  hcan  CAN 句柄（&hcan1 或 &hcan2）
+ */
+void CAN_Receive_M3508_4Motor(CAN_HandleTypeDef *hcan){
+    CAN_Filter_Mask_Config(hcan,
+                           CAN_FIFO_0 | CAN_STDID | CAN_DATA_TYPE,
+                           0x200,     // 基础 ID
+                           0x7FC);    // 掩码：0b111_1111_1100
+}
 
 /**
  * @brief  配置CAN的滤波器,这个只是配置了一个32位过滤器在加一个掩码配置

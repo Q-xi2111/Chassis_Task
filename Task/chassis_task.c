@@ -48,10 +48,10 @@ void chassis_rc_to_control_vector(fp32 *v_Forward_set, fp32 *v_Move_set, fp32 *v
         3	右后轮	BR
 */
     /* ---- 给定目标速度 ---- */
-    v_Forward_set_channel = v_Forward_channel * -CHASSIS_Forward_RC_SEN;    
+    v_Forward_set_channel = v_Forward_channel * CHASSIS_Forward_RC_SEN;    
     v_Move_set_channel = v_Move_channel * -CHASSIS_Move_RC_SEN;
     //在结构体中规定了逆时针方向为正值
-    v_Rotate_set_channel = v_Rotate_channel * -CHASSIS_Rotate_RC_SEN;
+    v_Rotate_set_channel = v_Rotate_channel * CHASSIS_Rotate_RC_SEN;
         
     //一阶低通滤波代替斜波作为底盘速度输入，防止突然突变导致电机猛的转动，v_Forward_set_channel为原始值
     /* ----这里改变的是chassis_cmd_slow_set_Forward，是一个结构体，后续用这个输出值*/
@@ -93,7 +93,7 @@ void chassis_rc_to_control_vector(fp32 *v_Forward_set, fp32 *v_Move_set, fp32 *v
 
 
 //pvParameters就是一个摆设，主要接收来自rtos的参数
-void chassis_task(void const *pvParameters){
+void chassis_task(void  *pvParameters){
     /* ---- 第一步，先阻塞任务一段时间，给硬件完成初始化（可能是这个理由）---- */
     vTaskDelay(CHASSIS_TASK_INIT_TIME);
 

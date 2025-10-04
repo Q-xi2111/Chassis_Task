@@ -34,11 +34,11 @@ static void chassis_open_set_control(fp32 *v_Forward_set, fp32 *v_Move_set, fp32
         return;
     }
     
-    *v_Forward_set = chassis_move_rc_to_vector->chassis_RC->rc.ch[CHASSIS_Forward_CHANNEL] * -CHASSIS_OPEN_RC_SCALE;
+    *v_Forward_set = chassis_move_rc_to_vector->chassis_RC->rc.ch[CHASSIS_Forward_CHANNEL] * CHASSIS_OPEN_RC_SCALE;
     //乘以负值，向左为正方向
     *v_Move_set = -chassis_move_rc_to_vector->chassis_RC->rc.ch[CHASSIS_Move_CHANNEL] * CHASSIS_OPEN_RC_SCALE;
     /* ---- 向左是逆时针旋转 按键向左打的时候就是逆时针旋转 ---- */
-    *w_Rotate_set = -chassis_move_rc_to_vector->chassis_RC->rc.ch[CHASSIS_Rotate_CHANNEL] * CHASSIS_OPEN_RC_SCALE;
+    *w_Rotate_set = chassis_move_rc_to_vector->chassis_RC->rc.ch[CHASSIS_Rotate_CHANNEL] * CHASSIS_OPEN_RC_SCALE;
     return;
 }
 
